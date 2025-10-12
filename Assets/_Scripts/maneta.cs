@@ -1,35 +1,33 @@
 using UnityEngine;
 
-public class maneta : MonoBehaviour
+public class Maneta : MonoBehaviour
 {
     [Header("Setări Pivot")]
-    public Transform pivot;
+    public Transform pivot; // Pivotul în jurul căruia se rotește maneta
 
     [Header("Setări Rotație")]
-    public float minAngle = 0;
-    public float maxAngle = 180f;
-    public float rotationSpeed = 5f; // Păstrat pentru compatibilitate, dar nu mai folosit
+    public float minAngle = -180f; // Unghi minim (jos)
+    public float maxAngle = 0f; // Unghi maxim (sus)
+    public float sensitivity = 180f; // Sensibilitatea mișcării mouse-ului
 
     [Header("Setări Revenire")]
-    public float returnDuration = 1f; // Durata totală de revenire (în secunde; scade pentru mai rapid)
-    private float initialAngle = 0f; // Unghiul inițial (poți seta manual în Inspector dacă vrei)
+    public float returnDuration = 1f; // Durata totală de revenire (în secunde)
+    private float initialAngle = 0f; // Unghiul inițial de revenire
     private bool isReturning = false;
     private float startTime;
     private float startAngle;
 
     private bool isDragging = false;
     private Camera cam;
-    private Vector3 initialOffset; // Offset inițial de la pivot la manetă
-    private float leverLength; // Lungimea manetei pentru normalizare
+    private float initialMouseY; // Poziția Y inițială a mouse-ului
 
     void Start()
     {
         cam = Camera.main;
         if (pivot != null)
         {
-            initialOffset = transform.position - pivot.position;
-            leverLength = initialOffset.magnitude;
-            initialAngle = minAngle; // Sau setează la o valoare custom dacă vrei
+            // Setează poziția manetei la pivot (doar rotație, fără offset)
+            transform.position = pivot.position;
         }
     }
 
@@ -37,6 +35,7 @@ public class maneta : MonoBehaviour
     {
         isDragging = true;
         isReturning = false; // Oprește revenirea dacă începi dragging
+        initialMouseY = cam.ScreenToWorldPoint(Input.mousePosition).y; // Salvează poziția Y inițială
     }
 
     void OnMouseUp()
@@ -44,9 +43,9 @@ public class maneta : MonoBehaviour
         isDragging = false;
         if (!isReturning)
         {
-            // Inițializează lerp-ul la eliberare
+            // Inițializează lerp-ul pentru revenire
             startAngle = transform.eulerAngles.x;
-            if (startAngle < 0f) startAngle += 360f;
+            if (startAngle > 180f) startAngle -= 360f; // Normalizează la [-180, 0]
             startTime = Time.time;
             isReturning = true;
         }
@@ -62,30 +61,22 @@ public class maneta : MonoBehaviour
             Vector3 mouseWorldPos = cam.ScreenToWorldPoint(Input.mousePosition);
             mouseWorldPos.z = 0f; // Ignoră axa Z în 2D
 
-            // Calculează doar diferența Y (sus/jos), ignoră X pentru a preveni mișcarea laterală
-            float deltaY = mouseWorldPos.y - pivot.position.y;
+            // Calculează diferența de mișcare pe axa Y (sus/jos)
+            float deltaY = mouseWorldPos.y - initialMouseY;
 
-            // Normalizează deltaY la lungimea manetei (pentru rotație naturală)
-            float normalizedY = Mathf.Clamp(deltaY / leverLength, -1f, 1f);
+            // Calculează unghiul bazat pe mișcarea mouse-ului
+            float angle = startAngle - deltaY * sensitivity;
 
-            // Calculează unghiul bazat pe Acos pentru full range 0-180 (peste cap când jos)
-            float angle = Mathf.Acos(normalizedY) * Mathf.Rad2Deg;
-
-            // Limitează unghiul între min și max
+            // Limitează unghiul între minAngle (-180) și maxAngle (0)
             angle = Mathf.Clamp(angle, minAngle, maxAngle);
 
-            // Aplică rotația pe axa X (out-of-plane) și poziția în jurul pivotului (doar pe verticală)
-            Vector3 rotatedOffset = Quaternion.Euler(angle, 0f, 0f) * initialOffset;
-            rotatedOffset.x = 0f; // Forțează X=0 pentru a bloca mișcarea laterală complet
-            transform.position = pivot.position + rotatedOffset;
+            // Aplică rotația doar pe axa X
             transform.rotation = Quaternion.Euler(angle, 0f, 0f);
         }
         else if (!isDragging && isReturning)
         {
-            // Lerp smooth pe unghi
+            // Lerp lin pentru revenirea la unghiul inițial
             float targetAngle = initialAngle;
-            if (targetAngle < 0f) targetAngle += 360f;
-
             float elapsed = Time.time - startTime;
             float t = Mathf.Clamp01(elapsed / returnDuration);
 
@@ -93,14 +84,9 @@ public class maneta : MonoBehaviour
             t = EaseOutCubic(t);
 
             float newAngle = Mathf.LerpAngle(startAngle, targetAngle, t);
-            newAngle = (newAngle + 360f) % 360f; // Normalizează înapoi la [0, 360)
 
-            // Aplică rotația și poziția consistent cu newAngle
+            // Aplică rotația
             transform.rotation = Quaternion.Euler(newAngle, 0f, 0f);
-
-            Vector3 rotatedOffset = Quaternion.Euler(newAngle, 0f, 0f) * initialOffset;
-            rotatedOffset.x = 0f; // Blochează X pentru consistență
-            transform.position = pivot.position + rotatedOffset;
 
             // Oprește revenirea când t=1
             if (t >= 1f)
@@ -110,7 +96,7 @@ public class maneta : MonoBehaviour
         }
     }
 
-    // Funcție de easing smooth (ease-out cubic: lent la început, rapid spre sfârșit)
+    // Funcție de easing smooth (ease-out cubic)
     private float EaseOutCubic(float t)
     {
         return 1f - Mathf.Pow(1f - t, 3f);
