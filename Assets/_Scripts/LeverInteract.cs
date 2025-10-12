@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Maneta : MonoBehaviour
+public class LeverInteract : MonoBehaviour
 {
     [Header("Setări Pivot")]
     public Transform pivot; // Pivotul în jurul căruia se rotește maneta
