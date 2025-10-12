@@ -68,6 +68,11 @@ public class LantInteract : MonoBehaviour
         // aici poți apela ceva gen:
         // FindObjectOfType<UsaController>().DeschideUsa();
         // sau un eveniment public, dacă vrei să-l legi din Inspector
-        FindFirstObjectByType<CortineMovement>()?.InchideCopertine();
+        var cortineMovements = FindObjectsByType<CortineMovement>(FindObjectsSortMode.None);
+        foreach (var cortina in cortineMovements)
+        {
+            cortina.InchideCopertine();
+        }
+
     }
 }
