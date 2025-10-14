@@ -1,57 +1,67 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using System.Collections.Generic;
 
+
+// Gestionază interacțiunea cu manetele, permițând rotația prin drag și revenirea.
+// Detectează scena și declanșează acțiuni specifice (Menu sau Game).
+// Adăugat: Integrare cu DropZoneManager pentru a verifica sprite-ul asociat poziției sub manetă.
+// Când maneta este trasă, mută un GameObject asociat sprite-ului cu Lerp.
 public class LeverInteract : MonoBehaviour {
     [Header("Setări Pivot")]
-    public Transform pivot;
+    public Transform pivot; // Pivotul de rotație.
 
     [Header("Setări Rotație")]
-    public float minAngle = -180f;
-    public float maxAngle = 0f;
-    public float sensitivity = 180f;
+    public float minAngle = -180f; // Unghi minim (jos).
+    public float maxAngle = 0f; // Unghi maxim (sus).
+    public float sensitivity = 180f; // Sensibilitate drag.
 
     [Header("Setări Revenire")]
-    public float returnDuration = 1f;
+    public float returnDuration = 1f; // Durata revenirii.
 
     [Header("Main Menu Settings")]
-    public string leverType = "Play";
+    public string leverType = "Play"; // Tip pentru MainMenu: "Play", "Options", "Tutorial".
 
     [Header("Integrare Drag & Drop")]
-    public Vector2 associatedPosition;
+    public Vector2 associatedPosition; // Poziția fixă asociată sub această manetă (din DropZoneManager.dropPositions).
 
     [Header("Setări Mutare Obiect")]
-    public float moveDistance = 5f;
-    public float moveDuration = 1f;
-    public AnimationCurve moveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    public float moveDistance = 10f; // Distanța de mutare spre dreapta (pe axa X).
+    public float moveDuration = 1f; // Durata mutării cu Lerp.
+    public AnimationCurve moveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f); // Curba de easing.
 
-    private float initialAngle = 0f;
-    private bool isReturning = false;
-    private float startTime;
-    private float startAngle;
-    private bool isDragging = false;
-    private Camera cam;
-    private float initialMouseY;
-    private bool hasTriggered = false;
+    private float initialAngle = 0f; // Unghi inițial.
+    private bool isReturning = false; // Flag revenire.
+    private float startTime; // Timp start revenire.
+    private float startAngle; // Unghi start revenire.
+    private bool isDragging = false; // Flag drag.
+    private Camera cam; // Camera principală.
+    private float initialMouseY; // Y inițial mouse.
+    private bool hasTriggered = false; // Flag declanșat.
 
-    private DropzoneManager dropManager;
+    private DropzoneManager dropManager; // Referință la managerul de drop zones.
 
     private void Start() {
+        // Inițializează camera și poziția la pivot.
         cam = Camera.main;
         if (pivot != null) {
             transform.position = pivot.position;
         }
 
+        // Găsește DropZoneManager în scenă.
         dropManager = FindAnyObjectByType<DropzoneManager>();
         if (dropManager == null) {
-            Debug.LogError("DropZoneManager nu a fost găsit în scenă!");
+            Debug.LogError("DropZoneManager nu a fost găsit în scenă! Asigură-te că există.");
         }
     }
 
     private void OnMouseDown() {
+        // Verifică activat și cameră.
         if (!enabled || cam == null)
             return;
 
+        // Începe drag.
         isDragging = true;
         isReturning = false;
         transform.localScale *= 1.1f;
@@ -59,6 +69,7 @@ public class LeverInteract : MonoBehaviour {
     }
 
     private void OnMouseUp() {
+        // Oprește drag și începe revenire dacă nu deja.
         isDragging = false;
         transform.localScale /= 1.1f;
         if (!isReturning) {
@@ -71,11 +82,13 @@ public class LeverInteract : MonoBehaviour {
 
     private void Update() {
         if (isDragging) {
+            // Dacă cameră lipsește, oprește.
             if (cam == null) {
                 isDragging = false;
                 return;
             }
 
+            // Calculează și aplică rotație clampată.
             Vector3 mouseWorldPos = cam.ScreenToWorldPoint(Input.mousePosition);
             mouseWorldPos.z = 0f;
             float deltaY = mouseWorldPos.y - initialMouseY;
@@ -83,18 +96,21 @@ public class LeverInteract : MonoBehaviour {
             angle = Mathf.Clamp(angle, minAngle, maxAngle);
             transform.rotation = Quaternion.Euler(angle, 0f, 0f);
 
+            // Declanșează doar dacă aproape de minAngle (prag strict <1f).
             if (!hasTriggered && Mathf.Abs(angle - minAngle) < 1f) {
                 hasTriggered = true;
                 TriggerLeverAction();
             }
         }
         else if (isReturning) {
+            // Revenire lin cu easing.
             float elapsed = Time.time - startTime;
             float t = Mathf.Clamp01(elapsed / returnDuration);
             t = EaseOutCubic(t);
             float newAngle = Mathf.LerpAngle(startAngle, initialAngle, t);
             transform.rotation = Quaternion.Euler(newAngle, 0f, 0f);
 
+            // Oprește revenire la final.
             if (t >= 1f) {
                 isReturning = false;
             }
@@ -102,6 +118,7 @@ public class LeverInteract : MonoBehaviour {
     }
 
     private void TriggerLeverAction() {
+        // Detectează scena și declanșează acțiune corespunzătoare (păstrat original).
         string sceneName = SceneManager.GetActiveScene().name;
         if (sceneName == "MainMenu") {
             if (MenuManager.Instance != null) {
@@ -110,30 +127,39 @@ public class LeverInteract : MonoBehaviour {
         }
         else {
             if (GameManager.Instance != null) {
-                GameManager.Instance.OnLeverPulled();
-            }
-        }
+                // Adăugat: Verifică sprite-ul asociat și mută obiectul corespunzător.
+                if (dropManager != null) {
+                    GameObject associatedSprite = dropManager.GetObjectAtPosition(associatedPosition);
+                    if (associatedSprite != null) {
+                        DragableObject dragable = associatedSprite.GetComponent<DragableObject>();
+                        if (dragable != null) {
+                            // Verifică dacă sprite-ul este unul required pentru scena curentă
+                            List<string> required = GameManager.Instance.requiredSpritesPerScene[GameManager.Instance.currentScene - 1];
+                            if (required.Contains(associatedSprite.name)) {
+                                // Sprite corect: Blochează sprite-ul, mută obiectul și apelează OnLeverPulled
+                                dragable.Lock();
 
-        if (dropManager != null) {
-            GameObject associatedSprite = dropManager.GetObjectAtPosition(associatedPosition);
-            if (associatedSprite != null) {
-                DragableObject dragable = associatedSprite.GetComponent<DragableObject>();
-                if (dragable != null) {
-                    dragable.Lock();
-                    if (dragable.associatedObject != null) {
-                        Debug.Log($"Maneta {name} a detectat sprite-ul: {associatedSprite.name} la poziția {associatedPosition}. Mută obiectul {dragable.associatedObject.name}.");
-                        StartCoroutine(MoveObjectToRight(dragable.associatedObject));
+                                if (dragable.associatedObject != null) {
+                                    Debug.Log($"Maneta {name} a detectat sprite-ul corect: {associatedSprite.name} la poziția {associatedPosition}. Mută obiectul {dragable.associatedObject.name}.");
+                                    StartCoroutine(MoveObjectToRight(dragable.associatedObject));
+                                }
+                                GameManager.Instance.OnLeverPulled(this); // Apelează OnLeverPulled doar dacă corect
+                            }
+                            else {
+                                Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu este corect pentru scena curentă. Resetează maneta.");
+                                Reset(); // Resetează maneta dacă sprite-ul nu e corect
+                            }
+                        }
+                        else {
+                            Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu are componenta DragableObject.");
+                            Reset(); // Resetează dacă nu are componentă
+                        }
                     }
                     else {
-                        Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu are un obiect asociat.");
+                        Debug.LogWarning($"Niciun sprite asociat la poziția {associatedPosition} pentru maneta {name}.");
+                        Reset(); // Resetează dacă nu există sprite
                     }
                 }
-                else {
-                    Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu are componenta DragableObject.");
-                }
-            }
-            else {
-                Debug.LogWarning($"Niciun sprite la poziția {associatedPosition} pentru maneta {name}.");
             }
         }
     }
@@ -142,25 +168,27 @@ public class LeverInteract : MonoBehaviour {
         if (target == null) yield break;
 
         Vector3 startPos = target.transform.position;
-        Vector3 endPos = startPos + new Vector3(moveDistance, 0f, 0f);
+        Vector3 endPos = startPos + new Vector3(moveDistance, 0f, 0f); // Mută spre dreapta pe X.
         float elapsed = 0f;
 
         while (elapsed < moveDuration) {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / moveDuration);
-            t = moveCurve.Evaluate(t);
+            t = moveCurve.Evaluate(t); // Aplică curba de easing.
             target.transform.position = Vector3.Lerp(startPos, endPos, t);
             yield return null;
         }
 
-        target.transform.position = endPos;
+        target.transform.position = endPos; // Asigură poziția finală exactă.
     }
 
     private float EaseOutCubic(float t) {
+        // Funcție easing pentru revenire smooth.
         return 1f - Mathf.Pow(1f - t, 3f);
     }
 
     public void Reset() {
+        // Resetează flag-uri și rotație/poziție.
         hasTriggered = false;
         isDragging = false;
         isReturning = false;
