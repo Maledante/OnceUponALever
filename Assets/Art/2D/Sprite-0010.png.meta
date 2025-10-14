@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: d52856bb0366b8240a553ebadf49a3f4
+guid: 2d66ab2e6a188844d9ecb5269bc71d68
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 4137496032202808209
-    second: brickwall_0
+      213: -1274250411473194610
+    second: Sprite-0010_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -51,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 50
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: brickwall_0
+      name: Sprite-0010_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 126
-        width: 1920
-        height: 954
+        x: 4
+        y: 3
+        width: 56
+        height: 58
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 19b590b48b65b6930800000000000000
-      internalID: 4137496032202808209
+      spriteID: e81be358004f05ee0800000000000000
+      internalID: -1274250411473194610
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      brickwall_0: 4137496032202808209
+      Sprite-0010_0: -1274250411473194610
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

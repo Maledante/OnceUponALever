@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 92eb70979fbe5c4429ed63d7cb461f4b
+guid: f6f95acd666bfbd47a19b1f995576308
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3629116631457475627
-    second: pngtree-seamless-cartoon-background-textured-stone-wall-built-from-bricks-in-a-picture-image_15206140_0
+      213: -6311161643843253525
+    second: Raischenar_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: pngtree-seamless-cartoon-background-textured-stone-wall-built-from-bricks-in-a-picture-image_15206140_0
+      name: Raischenar_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 1200
-        height: 673
+        x: 10
+        y: 9
+        width: 44
+        height: 46
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 5d3d38dc6a9c2adc0800000000000000
-      internalID: -3629116631457475627
+      spriteID: bea07a24cef3a68a0800000000000000
+      internalID: -6311161643843253525
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      pngtree-seamless-cartoon-background-textured-stone-wall-built-from-bricks-in-a-picture-image_15206140_0: -3629116631457475627
+      Raischenar_0: -6311161643843253525
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c9e450bec5248494c9312a60fa9e05b7
+guid: 8d7704ba21800724fad26b0e2434a6ff
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2370440456535827496
-    second: peremov_0
+      213: -6972296901719348540
+    second: Raisacoroanarosie_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -51,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 12
+  spritePixelsToUnits: 100
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: peremov_0
+      name: Raisacoroanarosie_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 128
-        height: 128
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8db97f2c6f08a1fd0800000000000000
-      internalID: -2370440456535827496
+      spriteID: 4ca2670a8ec6d3f90800000000000000
+      internalID: -6972296901719348540
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      peremov_0: -2370440456535827496
+      Raisacoroanarosie_0: -6972296901719348540
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

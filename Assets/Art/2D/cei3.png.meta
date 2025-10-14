@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: ed7a844de40d724448dab11bb43dc6c6
+guid: 84e76a9cabd12a0449dfe607605c4cf4
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1043239441667664304
-    second: masa_0
+      213: 3527186118623811828
+    second: cei3_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -51,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 15
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: masa_0
+      name: cei3_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
-        width: 1920
-        height: 481
+        y: 6
+        width: 41
+        height: 29
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 056d8bf414ba581f0800000000000000
-      internalID: -1043239441667664304
+      spriteID: 4f8d249461513f030800000000000000
+      internalID: 3527186118623811828
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      masa_0: -1043239441667664304
+      cei3_0: 3527186118623811828
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

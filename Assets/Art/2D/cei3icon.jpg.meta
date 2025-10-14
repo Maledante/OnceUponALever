@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 381f3f60108e60d42aca9e6a0274e597
+guid: b7fa52b01014c5d4b9a52743eaf65ca2
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -7512151853844245964
-    second: tap_0
+      213: -6999230377929605994
+    second: cei3icon_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: tap_0
+      name: cei3icon_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1707
-        height: 957
+        width: 64
+        height: 64
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 43252d4a0b97fb790800000000000000
-      internalID: -7512151853844245964
+      spriteID: 69cf1660e0dbdde90800000000000000
+      internalID: -6999230377929605994
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      tap_0: -7512151853844245964
+      cei3icon_0: -6999230377929605994
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
