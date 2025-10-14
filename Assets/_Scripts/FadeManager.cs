@@ -22,7 +22,7 @@ public class FadeManager : MonoBehaviour {
 
         // Inițializează alpha la 1 pentru fade in inițial dacă necesar.
         if (fadeImage != null) {
-            fadeImage.color = new Color(0, 0, 0, 1);
+            fadeImage.color = new Color(0, 0, 0, 0);
         }
     }
 

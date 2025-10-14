@@ -1,42 +1,36 @@
 using UnityEngine;
 using System.Collections;
 
-// Acest script gestionează starea generală a jocului, inclusiv tranzițiile între scenele poveștii,
-// interacțiunile cu manetele și sfoara, și controlul cortinelor și textului.
 public class GameManager : MonoBehaviour {
-    public static GameManager Instance { get; private set; } // Singleton pentru acces global.
+    public static GameManager Instance { get; private set; }
 
-    // Referințe asignate în Inspector.
-    public LeverInteract[] levers; // Array cu manetele de interacțiune.
-    public RopeInteract rope; // Referință la scriptul sfoarei.
-    public CortineMovement[] curtains; // Array cu cortinele (stânga și dreapta).
-    public TypewriterEffect writer; // Referință la scriptul typewriter pentru text.
+    public LeverInteract[] levers;
+    public RopeInteract rope;
+    public CortineMovement[] curtains;
+    public TypewriterEffect writer;
+    public Animator cei3;
 
-    // Enum pentru stările jocului.
     public enum GameState {
-        Intro, // Afișare poveste inițială.
-        Interaction, // Interacțiune cu manete.
-        ReadyToPullRope, // Gata pentru tragerea sfoarei.
-        Transition, // Tranziție la scena următoare.
-        End // Sfârșit joc.
+        Intro,
+        Interaction,
+        ReadyToPullRope,
+        Transition,
+        End
     }
 
-    public GameState currentState = GameState.Intro; // Starea inițială.
-    private int leversPulledCount = 0; // Contor manete trase.
-    private int currentScene = 1; // Scena curentă (începe de la 1).
-
-    // Texte pentru fiecare scenă a poveștii.
+    public GameState currentState = GameState.Intro;
+    private int leversPulledCount = 0;
+    private int currentScene = 1;
     public string[] storyTexts = new string[]
     {
         "There was once a King who had three sons. He ruled a fair land in a big castle",
         "Povestea scenei 2: Noi provocări aici."
     };
+    public int[] requiredLeversPerScene;
 
-    // Numărul necesar de manete trase per scenă (asignat în Inspector).
-    public int[] requiredLeversPerScene; // Ex: {5, 3} pentru scena 1 și 2.
+    private DropzoneManager dropManager;
 
     void Awake() {
-        // Inițializează singleton-ul.
         if (Instance == null) {
             Instance = this;
         }
@@ -46,29 +40,31 @@ public class GameManager : MonoBehaviour {
     }
 
     void Start() {
-        // Pornește corutina de start joc și fade in.
+        dropManager = FindAnyObjectByType<DropzoneManager>();
+        if (dropManager == null) {
+            Debug.LogError("DropZoneManager nu a fost găsit în scenă!");
+        }
+
         StartCoroutine(StartGame());
     }
 
     private IEnumerator StartGame() {
-        // Fade in la începutul jocului.
         if (FadeManager.Instance != null)
             yield return StartCoroutine(FadeManager.Instance.FadeIn());
 
-        // Setează starea inițială și afișează textul primei scene.
         SetState(GameState.Intro);
         yield return StartCoroutine(writer.StartTyping(storyTexts[currentScene - 1]));
         SetState(GameState.Interaction);
     }
 
     private void SetState(GameState newState) {
-        // Schimbă starea și execută acțiuni specifice.
         currentState = newState;
         switch (newState) {
             case GameState.Intro:
                 DisableInteractions();
                 break;
             case GameState.Interaction:
+                ResetScene(); // Resetează scena la intrarea în Interaction
                 EnableLevers();
                 DisableRope();
                 break;
@@ -84,7 +80,6 @@ public class GameManager : MonoBehaviour {
     }
 
     public void OnLeverPulled() {
-        // Increment contor și verifică dacă sunt toate necesare trase.
         leversPulledCount++;
         if (leversPulledCount >= requiredLeversPerScene[currentScene - 1]) {
             SetState(GameState.ReadyToPullRope);
@@ -92,74 +87,97 @@ public class GameManager : MonoBehaviour {
     }
 
     public void OnRopePulled() {
-        // Verifică starea și trece la tranziție.
         if (currentState == GameState.ReadyToPullRope) {
             SetState(GameState.Transition);
         }
     }
 
     private IEnumerator TransitionToNextScene() {
-        // Închide cortinele.
         foreach (var curtain in curtains) {
-            yield return StartCoroutine(curtain.InchideCopertine());
+            StartCoroutine(curtain.InchideCopertine());
         }
 
-        // Resetează manete și contor.
         ResetLevers();
         leversPulledCount = 0;
 
-        // Avansează scena și verifică sfârșit.
+        yield return new WaitForSeconds(2f);
+
+        foreach (var curtain in curtains) {
+            StartCoroutine(curtain.DeschideCopertine());
+        }
+        cei3.SetBool("Sari", true);
+
+        yield return new WaitForSeconds(3f);
+
+        foreach (var curtain in curtains) {
+            StartCoroutine(curtain.InchideCopertine());
+        }
+        yield return new WaitForSeconds(4f);
+        cei3.SetBool("Sari", false);
+
         currentScene++;
         if (currentScene > storyTexts.Length) {
             SetState(GameState.End);
             yield break;
         }
 
-        // Skip text curent, afișează text nou, deschide cortinele.
+        foreach (var curtain in curtains) {
+            StartCoroutine(curtain.DeschideCopertine());
+        }
+        yield return new WaitForSeconds(4f);
         writer.SkipToEnd();
         yield return StartCoroutine(writer.StartTyping(storyTexts[currentScene - 1]));
 
-        foreach (var curtain in curtains) {
-            yield return StartCoroutine(curtain.DeschideCopertine());
-        }
-
-        SetState(GameState.Interaction);
+        SetState(GameState.Interaction); // Va reseta scena din nou
     }
 
     private void DisableInteractions() {
-        // Dezactivează manete și sfoară.
         DisableLevers();
         DisableRope();
     }
 
     private void EnableLevers() {
-        // Activează manetele.
         foreach (var lever in levers) {
             lever.enabled = true;
         }
     }
 
     private void DisableLevers() {
-        // Dezactivează manetele.
         foreach (var lever in levers) {
             lever.enabled = false;
         }
     }
 
     private void EnableRope() {
-        // Activează sfoara.
         rope.enabled = true;
     }
 
     private void DisableRope() {
-        // Dezactivează sfoara.
         rope.enabled = false;
     }
 
     private void ResetLevers() {
-        // Resetează fiecare manetă.
         foreach (var lever in levers) {
             lever.Reset();
+            lever.ResetSprite();
         }
+    }
+
+    private void ResetScene() {
+        // Resetează manetele și sprite-urile asociate
+        ResetLevers();
+
+        // Resetează toate sprite-urile
+        if (dropManager != null) {
+            DragableObject[] allDragables = FindObjectsByType<DragableObject>(FindObjectsSortMode.None);
+            foreach (var dragable in allDragables) {
+                dropManager.RemoveObjectFromPosition((Vector2)dragable.transform.position);
+                dragable.Unlock();
+                dragable.ReturnToOriginal();
+            }
+        }
+
+        // Resetează contorul de manete
+        leversPulledCount = 0;
     }
 }

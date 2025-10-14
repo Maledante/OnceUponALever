@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: f73d25b2dd830cd4494149b551ceb973
+guid: 876cdceb10fea274dbd81be7b82c0f5f
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 4107468755478137941
-    second: Raisacoroanaalbastra_0
+      213: -7454652215439619944
+    second: rege_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Raisacoroanaalbastra_0
+      name: rege_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 64
-        height: 64
+        x: 10
+        y: 3
+        width: 43
+        height: 59
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 55c4a402219a00930800000000000000
-      internalID: 4107468755478137941
+      spriteID: 89884a67e41cb8890800000000000000
+      internalID: -7454652215439619944
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Raisacoroanaalbastra_0: 4107468755478137941
+      rege_0: -7454652215439619944
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

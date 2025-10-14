@@ -13,10 +13,10 @@ public class CortineMovement : MonoBehaviour {
         pozitieInitiala = transform.localPosition;
 
         if (gameObject.name.Contains("Stanga")) {
-            pozitieFinala = new Vector3(pozitieInitiala.x - 5f, pozitieInitiala.y, pozitieInitiala.z);
+            pozitieFinala = new Vector3(pozitieInitiala.x + 5.9f, pozitieInitiala.y, pozitieInitiala.z);
         }
         else if (gameObject.name.Contains("Dreapta")) {
-            pozitieFinala = new Vector3(pozitieInitiala.x + 5f, pozitieInitiala.y, pozitieInitiala.z);
+            pozitieFinala = new Vector3(pozitieInitiala.x - 5.9f, pozitieInitiala.y, pozitieInitiala.z);
         }
     }
 
@@ -29,7 +29,6 @@ public class CortineMovement : MonoBehaviour {
         inMiscarare = true;
         float elapsed = 0f;
         Vector3 startPos = transform.localPosition;
-
         while (elapsed < durataInchidere) {
             float t = elapsed / durataInchidere;
             transform.localPosition = Vector3.Lerp(startPos, pozitieFinala, t);
