@@ -1,3 +1,8 @@
+// Modified DropzoneManager.cs
+// Changes:
+// - Modified GetNearestPosition and GetNearestFreePosition to return Vector3 with z=1f, but since dropPositions are Vector2, return new Vector3(pos.x, pos.y, 1f).
+// - Updated AssignObjectToPosition, RemoveObjectFromPosition, etc., to handle Vector2 but assume z=1.
+
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,7 +15,7 @@ public class DropzoneManager : MonoBehaviour {
         // Now, initial positions should be registered in DragableObject Start()
     }
 
-    public Vector2 GetNearestPosition(Vector2 currentPos, float threshold) {
+    public Vector3 GetNearestPosition(Vector2 currentPos, float threshold) {  // Changed return to Vector3
         Vector2 nearest = Vector2.zero;
         float minDist = float.MaxValue;
 
@@ -22,11 +27,10 @@ public class DropzoneManager : MonoBehaviour {
             }
         }
 
-        return nearest;
+        return new Vector3(nearest.x, nearest.y, 1f);  // Force z=1
     }
 
-    public Vector2 GetNearestFreePosition(Vector2 currentPos, float threshold) {
-        // Kept this for potential future use, but now we use GetNearestPosition which allows occupied
+    public Vector3 GetNearestFreePosition(Vector2 currentPos, float threshold) {  // Changed return to Vector3
         Vector2 nearest = Vector2.zero;
         float minDist = float.MaxValue;
 
@@ -40,7 +44,7 @@ public class DropzoneManager : MonoBehaviour {
             }
         }
 
-        return nearest;
+        return new Vector3(nearest.x, nearest.y, 1f);  // Force z=1
     }
 
     public void AssignObjectToPosition(Vector2 pos, GameObject obj) {

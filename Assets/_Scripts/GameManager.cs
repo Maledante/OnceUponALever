@@ -1,8 +1,13 @@
+// Modified GameManager.cs
+// Changes:
+// - Removed application of moveOffset, sortingOrder, and flipX from UpdateDragableObjectSettings, as these should only apply when a lever is pulled.
+// - Kept SetMoveOffset in UpdateDragableObjectSettings to store the offset for use in LeverInteract.
+// - Preserved the specific configurations in InitializePerSceneConfigurations for scenes 0, 1, 2, and 3, and defaults for others.
+
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
-// Gestionază starea jocului, inclusiv resetarea sprite-urilor la tranziție falsă și vizibilitatea per scenă.
 public class GameManager : MonoBehaviour {
     public static GameManager Instance { get; private set; }
 
@@ -14,7 +19,6 @@ public class GameManager : MonoBehaviour {
     public enum GameState {
         Intro,
         Interaction,
-        ReadyToPullRope,
         Transition,
         End
     }
@@ -40,12 +44,21 @@ public class GameManager : MonoBehaviour {
     };
     public int[] requiredLeversPerScene;
 
-    private DropzoneManager dropManager; // Corectat la DropZoneManager
+    private DropzoneManager dropManager;
 
     [Header("Sprite Management")]
-    public GameObject[] allSprites; // All sprite GameObjects (DragableObject attached)
-    public List<string>[] availableSpritesPerScene; // Names of available sprites per scene (cumulative)
-    public List<string>[] requiredSpritesPerScene; // Names of required correct sprites per scene
+    public GameObject[] allSprites;
+    public List<string>[] availableSpritesPerScene;
+    public List<string>[] requiredSpritesPerScene;
+
+    [Header("Per-Scene Configurations")]
+    public Dictionary<string, Vector3>[] moveOffsetsPerScene;
+    public Dictionary<string, int>[] characterSortingOrdersPerScene;
+    public Dictionary<string, bool>[] flipSpritesPerScene;
+
+    [Header("Sound Settings")]
+    public AudioSource audioSource; // Assign in Inspector
+    public AudioClip appearSound; // Assign your sound clip in Inspector
 
     void Awake() {
         if (Instance == null) {
@@ -61,30 +74,115 @@ public class GameManager : MonoBehaviour {
         if (dropManager == null) {
             Debug.LogError("DropZoneManager nu a fost găsit în scenă!");
         }
-
-        // Inițializează available și required sprites per scene
         InitializeSpriteData();
-
+        InitializePerSceneConfigurations();
+        UpdateDragableObjectSettings();
         StartCoroutine(StartGame());
     }
 
     private void InitializeSpriteData() {
         availableSpritesPerScene = new List<string>[storyTexts.Length];
         requiredSpritesPerScene = new List<string>[storyTexts.Length];
+        availableSpritesPerScene[0] = new List<string> { "coroanaalbastraicon", "frate2icon", "harapicon", "frate1icon", "castelicon" };
+        requiredSpritesPerScene[0] = new List<string> { "coroanaalbastraicon", "frate2icon", "harapicon", "frate1icon", "castelicon" };
+        availableSpritesPerScene[1] = new List<string> { "coroanaalbastraicon", "frate2icon", "harapicon", "frate1icon", "castelicon", "mesagericon", "tronicon" };
+        requiredSpritesPerScene[1] = new List<string> { "coroanaalbastraicon", "mesagericon", "tronicon" };
+        availableSpritesPerScene[2] = new List<string> { "coroanaalbastraicon", "frate2icon", "harapicon", "frate1icon", "castelicon", "mesagericon", "tronicon" };
+        requiredSpritesPerScene[2] = new List<string> { "coroanaalbastraicon", "frate2icon", "harapicon", "frate1icon", "tronicon" };
+        availableSpritesPerScene[3] = new List<string> { "coroanaalbastraicon", "frate2icon", "harapicon", "frate1icon", "castelicon", "mesagericon", "tronicon", "copacicon" };
+        requiredSpritesPerScene[3] = new List<string> { "frate2icon", "harapicon", "frate1icon", "copacicon" };
 
-        // Scena 1: Exemplu cu "coroanaalbastraicon" (ajustează după nevoie)
-        availableSpritesPerScene[0] = new List<string> { "coroanaalbastraicon" };
-        requiredSpritesPerScene[0] = new List<string> { "coroanaalbastraicon" };
+        for (int i = 4; i < storyTexts.Length; i++) {
+            availableSpritesPerScene[i] = new List<string>(availableSpritesPerScene[0]);
+            requiredSpritesPerScene[i] = new List<string>(requiredSpritesPerScene[0]);
+        }
+    }
 
-        // Scena 2: Adaugă "harapicon", "castelicon"
-        availableSpritesPerScene[1] = new List<string>(availableSpritesPerScene[0]) { "harapicon", "castelicon" };
-        requiredSpritesPerScene[1] = new List<string> { "coroanaalbastraicon", "harapicon", "castelicon" };
+    private void InitializePerSceneConfigurations() {
+        moveOffsetsPerScene = new Dictionary<string, Vector3>[storyTexts.Length];
+        characterSortingOrdersPerScene = new Dictionary<string, int>[storyTexts.Length];
+        flipSpritesPerScene = new Dictionary<string, bool>[storyTexts.Length];
+
+        // Initialize dictionaries for each scene
+        for (int i = 0; i < storyTexts.Length; i++) {
+            moveOffsetsPerScene[i] = new Dictionary<string, Vector3>();
+            characterSortingOrdersPerScene[i] = new Dictionary<string, int>();
+            flipSpritesPerScene[i] = new Dictionary<string, bool>();
+        }
+
+        // Scene 1 (index 0): Configurations for offsets, sorting orders, and flips
+        moveOffsetsPerScene[0]["coroanaalbastraicon"] = new Vector3(5f, 0f, 0f);
+        moveOffsetsPerScene[0]["frate2icon"] = new Vector3(4.67f, 0f, 0f);
+        moveOffsetsPerScene[0]["harapicon"] = new Vector3(4.78f, 0f, 0f);
+        moveOffsetsPerScene[0]["frate1icon"] = new Vector3(5.69f, 0f, 0f);
+        moveOffsetsPerScene[0]["castelicon"] = new Vector3(9f, 0f, 0f);
+
+        characterSortingOrdersPerScene[0]["coroanaalbastraicon"] = 1;
+        characterSortingOrdersPerScene[0]["frate2icon"] = 2;
+        characterSortingOrdersPerScene[0]["harapicon"] = 2;
+        characterSortingOrdersPerScene[0]["frate1icon"] = 2;
+        characterSortingOrdersPerScene[0]["castelicon"] = 1;
+
+        // Scene 2 (index 1): Configurations for offsets, sorting orders, and flips
+        moveOffsetsPerScene[1]["tronicon"] = new Vector3(9f, 0f, 0f);
+        moveOffsetsPerScene[1]["coroanaalbastraicon"] = new Vector3(9f, 0f, 0f);
+        moveOffsetsPerScene[1]["mesagericon"] = new Vector3(-9f, -1.5f, 0f);
+
+        characterSortingOrdersPerScene[1]["tronicon"] = 1;
+        characterSortingOrdersPerScene[1]["regeicon"] = 2;
+        characterSortingOrdersPerScene[1]["mesagericon"] = 1;
+
+        flipSpritesPerScene[1]["tronicon"] = false;
+        flipSpritesPerScene[1]["regeicon"] = true; // Flip regeicon in scene 2
+        flipSpritesPerScene[1]["mesagericon"] = true;
+
+        // Scene 3 (index 2): Configurations for offsets, sorting orders, and flips
+        moveOffsetsPerScene[2]["tronicon"] = new Vector3(9f, 0f, 0f);
+        moveOffsetsPerScene[2]["coroanaalbastraicon"] = new Vector3(9f, 0f, 0f);
+        moveOffsetsPerScene[2]["frate2icon"] = new Vector3(4.67f, 0f, 0f);
+        moveOffsetsPerScene[2]["harapicon"] = new Vector3(4.78f, 0f, 0f);
+        moveOffsetsPerScene[2]["frate1icon"] = new Vector3(5.69f, 0f, 0f);
+
+        characterSortingOrdersPerScene[2]["tronicon"] = 1;
+        characterSortingOrdersPerScene[2]["regeicon"] = 2;
+
+        // Scene 4 (index 3): Configurations for offsets, sorting orders, and flips
+        moveOffsetsPerScene[3]["copacicon"] = new Vector3(14f, 0f, 0f);
+        moveOffsetsPerScene[3]["frate2icon"] = new Vector3(4.67f, 0f, 0f);
+        moveOffsetsPerScene[3]["harapicon"] = new Vector3(4.78f, 0f, 0f);
+        moveOffsetsPerScene[3]["frate1icon"] = new Vector3(5.69f, 0f, 0f);
+
+        characterSortingOrdersPerScene[3]["copacicon"] = 1;
+        characterSortingOrdersPerScene[3]["frate2icon"] = 2;
+        characterSortingOrdersPerScene[3]["harapicon"] = 2;
+        characterSortingOrdersPerScene[3]["frate1icon"] = 2;
+
+        // Initialize remaining scenes with defaults
+        for (int i = 4; i < storyTexts.Length; i++) {
+            foreach (string spriteName in availableSpritesPerScene[i]) {
+                moveOffsetsPerScene[i][spriteName] = new Vector3(5f, 0f, 0f); // Default offset
+                characterSortingOrdersPerScene[i][spriteName] = 5; // Default sorting order
+                flipSpritesPerScene[i][spriteName] = false; // Default no flip
+            }
+        }
+    }
+
+    private void UpdateDragableObjectSettings() {
+        int sceneIndex = currentScene - 1;
+        DragableObject[] allDragables = FindObjectsByType<DragableObject>(FindObjectsSortMode.None);
+        foreach (var dragable in allDragables) {
+            string spriteName = dragable.gameObject.name;
+            // Only set the moveOffset for use in LeverInteract
+            if (moveOffsetsPerScene[sceneIndex].ContainsKey(spriteName)) {
+                dragable.SetMoveOffset(moveOffsetsPerScene[sceneIndex][spriteName]);
+                Debug.Log($"Set moveOffset for {spriteName} to {moveOffsetsPerScene[sceneIndex][spriteName]} in scene {currentScene}");
+            }
+        }
     }
 
     private IEnumerator StartGame() {
         if (FadeManager.Instance != null)
             yield return StartCoroutine(FadeManager.Instance.FadeIn());
-
         SetState(GameState.Intro);
         yield return StartCoroutine(writer.StartTyping(storyTexts[currentScene - 1]));
         SetState(GameState.Interaction);
@@ -97,13 +195,7 @@ public class GameManager : MonoBehaviour {
                 DisableInteractions();
                 break;
             case GameState.Interaction:
-                ResetScene(); // Resetează scena la intrarea în Interaction
-                UpdateSpriteVisibility(); // Actualizează vizibilitatea sprite-urilor
-                EnableLevers();
-                DisableRope();
-                break;
-            case GameState.ReadyToPullRope:
-                EnableRope();
+                StartCoroutine(InteractionRoutine());
                 break;
             case GameState.Transition:
                 StartCoroutine(TransitionToNextScene());
@@ -113,35 +205,42 @@ public class GameManager : MonoBehaviour {
         }
     }
 
-    private void UpdateSpriteVisibility() {
-        List<string> available = availableSpritesPerScene[currentScene - 1];
+    private IEnumerator InteractionRoutine() {
+        yield return StartCoroutine(ResetScene());
+        yield return StartCoroutine(UpdateSpriteVisibilitySequential());
+        UpdateDragableObjectSettings();
+        EnableLevers();
+        EnableRope();
+    }
 
-        foreach (GameObject sprite in allSprites) {
-            bool isAvailable = available.Contains(sprite.name);
-            sprite.SetActive(isAvailable); // Activează doar sprite-urile disponibile pentru scena curentă
+    private IEnumerator UpdateSpriteVisibilitySequential() {
+        List<string> available = availableSpritesPerScene[currentScene - 1];
+        List<GameObject> newSprites = new List<GameObject>();
+
+        // Do not deactivate anything; only collect inactive available sprites
+        foreach (string spriteName in available) {
+            GameObject sprite = System.Array.Find(allSprites, s => s.name == spriteName);
+            if (sprite != null && !sprite.activeSelf) {
+                newSprites.Add(sprite);
+            }
+        }
+
+        // Activate only new ones sequentially
+        foreach (GameObject sprite in newSprites) {
+            sprite.SetActive(true);
+            if (audioSource != null && appearSound != null) {
+                audioSource.PlayOneShot(appearSound);
+            }
+            yield return new WaitForSeconds(0.5f);
         }
     }
 
     public void OnLeverPulled(LeverInteract lever) {
-        // Verifică dacă sprite-ul sub maneta trasă este corect
-        GameObject spriteAtPos = dropManager.GetObjectAtPosition(lever.associatedPosition);
-        if (spriteAtPos != null) {
-            List<string> required = requiredSpritesPerScene[currentScene - 1];
-            if (required.Contains(spriteAtPos.name)) {
-                leversPulledCount++;
-                if (leversPulledCount >= requiredLeversPerScene[currentScene - 1]) {
-                    SetState(GameState.ReadyToPullRope);
-                }
-                return; // Succes, maneta trasă contează
-            }
-        }
-
-        // Dacă nu e corect, resetează maneta (nu contează în count)
-        lever.Reset();
+        leversPulledCount++;
     }
 
     public void OnRopePulled() {
-        if (currentState == GameState.ReadyToPullRope) {
+        if (currentState == GameState.Interaction) {
             if (CheckCorrectSprites()) {
                 SetState(GameState.Transition);
             }
@@ -154,15 +253,12 @@ public class GameManager : MonoBehaviour {
     private bool CheckCorrectSprites() {
         List<string> placedSprites = new List<string>();
         foreach (LeverInteract lever in levers) {
-            GameObject spriteAtPos = dropManager.GetObjectAtPosition(lever.associatedPosition);
+            GameObject spriteAtPos = dropManager.GetObjectAtPosition((Vector2)lever.associatedPosition);
             if (spriteAtPos != null) {
                 placedSprites.Add(spriteAtPos.name);
             }
         }
-
         List<string> required = requiredSpritesPerScene[currentScene - 1];
-
-        // Verifică dacă toate required sunt plasate și nu sunt extra
         if (placedSprites.Count != required.Count) return false;
         foreach (string req in required) {
             if (!placedSprites.Contains(req)) return false;
@@ -171,51 +267,37 @@ public class GameManager : MonoBehaviour {
     }
 
     private IEnumerator FakeTransition() {
-        // Închide cortinele
         foreach (var curtain in curtains) {
             StartCoroutine(curtain.InchideCopertine());
         }
-
         yield return new WaitForSeconds(2f);
-
-        // Resetează sprite-urile
-        ResetScene();
-
-        // Deschide cortinele
+        yield return StartCoroutine(ResetScene());
         foreach (var curtain in curtains) {
             StartCoroutine(curtain.DeschideCopertine());
         }
-
-        // Revine la Interaction
         SetState(GameState.Interaction);
     }
 
     private IEnumerator TransitionToNextScene() {
-        // Închide cortinele
         foreach (var curtain in curtains) {
             StartCoroutine(curtain.InchideCopertine());
         }
-
         ResetLevers();
         leversPulledCount = 0;
-
         yield return new WaitForSeconds(2f);
-
-        // Deschide cortinele (fără animatorul cei3, conform cererii tale de simplificare)
+        yield return StartCoroutine(ResetScene());
         foreach (var curtain in curtains) {
             StartCoroutine(curtain.DeschideCopertine());
         }
-
         currentScene++;
         if (currentScene > storyTexts.Length) {
             SetState(GameState.End);
             yield break;
         }
-
+        UpdateDragableObjectSettings();
         yield return new WaitForSeconds(4f);
         writer.SkipToEnd();
         yield return StartCoroutine(writer.StartTyping(storyTexts[currentScene - 1]));
-
         SetState(GameState.Interaction);
     }
 
@@ -251,21 +333,32 @@ public class GameManager : MonoBehaviour {
         }
     }
 
-    private void ResetScene() {
-        // Resetează manetele și sprite-urile asociate
+    private IEnumerator ResetScene() {
+        Debug.Log("Resetting scene...");
         ResetLevers();
-
-        // Resetează toate sprite-urile
         if (dropManager != null) {
-            DragableObject[] allDragables = Object.FindObjectsByType<DragableObject>(FindObjectsSortMode.None);
+            DragableObject[] allDragables = FindObjectsByType<DragableObject>(FindObjectsSortMode.None);
             foreach (var dragable in allDragables) {
+                Debug.Log($"Resetting dragable {dragable.name}...");
                 dropManager.RemoveObjectFromPosition((Vector2)dragable.transform.position);
                 dragable.Unlock();
-                dragable.ReturnToOriginal();
+                dragable.ResetAssociatedObject(); // Sync reset
+                dragable.ReturnToOriginal(); // Starts SmoothSnap coroutine
+            }
+            // Wait for all snaps to complete
+            bool allSnapsDone = false;
+            while (!allSnapsDone) {
+                allSnapsDone = true;
+                foreach (var dragable in allDragables) {
+                    if (dragable.IsSnapping) {
+                        allSnapsDone = false;
+                        break;
+                    }
+                }
+                yield return null;
             }
         }
-
-        // Resetează contorul de manete
         leversPulledCount = 0;
+        Debug.Log("Scene reset complete.");
     }
 }

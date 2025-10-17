@@ -1,13 +1,15 @@
+// Modified LeverInteract.cs
+// Changes:
+// - In TriggerLeverAction, when a correct sprite is detected and isActivated is false, apply moveOffset, sortingOrder, and flipX from GameManager's configurations to the associatedObject.
+// - Use MoveAssociatedObject to lerp the associatedObject to its current position + moveOffset.
+// - When reversing (isActivated = true), reset to original position using MoveAssociatedObject with -moveOffset, and reset sortingOrder and flipX to defaults (sortingOrder=5, flipX=false).
+// - Ensured associatedObject's original Z position is preserved during movement.
+
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
 using System.Collections.Generic;
 
-
-// Gestionază interacțiunea cu manetele, permițând rotația prin drag și revenirea.
-// Detectează scena și declanșează acțiuni specifice (Menu sau Game).
-// Adăugat: Integrare cu DropZoneManager pentru a verifica sprite-ul asociat poziției sub manetă.
-// Când maneta este trasă, mută un GameObject asociat sprite-ului cu Lerp.
 public class LeverInteract : MonoBehaviour {
     [Header("Setări Pivot")]
     public Transform pivot; // Pivotul de rotație.
@@ -24,71 +26,102 @@ public class LeverInteract : MonoBehaviour {
     public string leverType = "Play"; // Tip pentru MainMenu: "Play", "Options", "Tutorial".
 
     [Header("Integrare Drag & Drop")]
-    public Vector2 associatedPosition; // Poziția fixă asociată sub această manetă (din DropZoneManager.dropPositions).
+    public Vector2 associatedPosition; // Poziția fixă asociată sub această manetă.
 
     [Header("Setări Mutare Obiect")]
-    public float moveDistance = 10f; // Distanța de mutare spre dreapta (pe axa X).
     public float moveDuration = 1f; // Durata mutării cu Lerp.
     public AnimationCurve moveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f); // Curba de easing.
 
-    private float initialAngle = 0f; // Unghi inițial.
-    private bool isReturning = false; // Flag revenire.
-    private float startTime; // Timp start revenire.
-    private float startAngle; // Unghi start revenire.
-    private bool isDragging = false; // Flag drag.
-    private Camera cam; // Camera principală.
-    private float initialMouseY; // Y inițial mouse.
-    private bool hasTriggered = false; // Flag declanșat.
-
-    private DropzoneManager dropManager; // Referință la managerul de drop zones.
+    private float initialAngle = 0f;
+    private bool isReturning = false;
+    private float startTime;
+    private float startAngle;
+    private bool isDragging = false;
+    private Camera cam;
+    private float initialMouseY;
+    private bool hasTriggered = false;
+    private Vector3 originalScale;
+    private Vector3 originalPosition;
+    private DropzoneManager dropManager;
+    private bool canInteract = true;
+    private bool isActivated = false; // Track if the associated object is moved forward
 
     private void Start() {
-        // Inițializează camera și poziția la pivot.
         cam = Camera.main;
+        originalScale = transform.localScale; // Salvează scala inițială
+        if (originalScale == Vector3.zero) {
+            originalScale = Vector3.one; // Fallback pentru a preveni scala zero
+            Debug.LogWarning($"Maneta {name} avea scala zero în Start. Setată la Vector3.one.");
+        }
+        originalPosition = transform.position; // Salvează poziția inițială
         if (pivot != null) {
             transform.position = pivot.position;
+            originalPosition = pivot.position;
         }
 
-        // Găsește DropZoneManager în scenă.
-        dropManager = FindAnyObjectByType<DropzoneManager>();
-        if (dropManager == null) {
-            Debug.LogError("DropZoneManager nu a fost găsit în scenă! Asigură-te că există.");
+        if (SceneManager.GetActiveScene().name != "MainMenu") {
+            dropManager = FindAnyObjectByType<DropzoneManager>();
+            if (dropManager == null) {
+                Debug.LogError($"DropZoneManager nu a fost găsit pentru maneta {name}!");
+            }
         }
+
+        if (pivot == null) {
+            Debug.LogWarning($"Pivotul nu este setat pentru maneta {name}. Poziția poate fi incorectă.");
+        }
+
+        Debug.Log($"Maneta {name} inițializată. Scală: {originalScale}, Poziție: {originalPosition}");
     }
 
     private void OnMouseDown() {
-        // Verifică activat și cameră.
-        if (!enabled || cam == null)
+        if (!enabled || cam == null || !canInteract) {
+            Debug.Log($"Maneta {name} nu poate fi interacționată: enabled={enabled}, cam={cam != null}, canInteract={canInteract}");
             return;
-
-        // Începe drag.
+        }
         isDragging = true;
         isReturning = false;
-        transform.localScale *= 1.1f;
+        canInteract = false;
+        transform.localScale = originalScale * 1.1f;
         initialMouseY = cam.ScreenToWorldPoint(Input.mousePosition).y;
+
+        // Inițializează startAngle cu unghiul curent la începutul drag-ului
+        startAngle = transform.eulerAngles.x;
+        if (startAngle > 180f) startAngle -= 360f;
+
+        Debug.Log($"Maneta {name} apăsată. Scală curentă: {transform.localScale}, Poziție: {transform.position}, originalScale: {originalScale}, startAngle inițial: {startAngle}");
     }
 
     private void OnMouseUp() {
-        // Oprește drag și începe revenire dacă nu deja.
-        isDragging = false;
-        transform.localScale /= 1.1f;
-        if (!isReturning) {
-            startAngle = transform.eulerAngles.x;
-            if (startAngle > 180f) startAngle -= 360f;
-            startTime = Time.time;
-            isReturning = true;
+        if (isDragging) {
+            isDragging = false;
+            if (originalScale == Vector3.zero) {
+                originalScale = Vector3.one; // Protecție împotriva scalei zero
+                Debug.LogWarning($"Maneta {name} avea originalScale zero în OnMouseUp. Setată la Vector3.one.");
+            }
+            transform.localScale = originalScale;
+            if (!isReturning) {
+                startTime = Time.time;
+                isReturning = true;
+            }
+            Debug.Log($"Maneta {name} eliberată. Scală curentă: {transform.localScale}, Poziție: {transform.position}, originalScale: {originalScale}");
+            StartCoroutine(EnableInteractionAfterDelay(returnDuration));
         }
+    }
+
+    private IEnumerator EnableInteractionAfterDelay(float delay) {
+        yield return new WaitForSeconds(delay);
+        canInteract = true;
+        Debug.Log($"Maneta {name} este din nou interactivă.");
     }
 
     private void Update() {
         if (isDragging) {
-            // Dacă cameră lipsește, oprește.
             if (cam == null) {
                 isDragging = false;
+                canInteract = true;
+                Debug.LogWarning($"Camera lipsește pentru maneta {name}. Oprire drag.");
                 return;
             }
-
-            // Calculează și aplică rotație clampată.
             Vector3 mouseWorldPos = cam.ScreenToWorldPoint(Input.mousePosition);
             mouseWorldPos.z = 0f;
             float deltaY = mouseWorldPos.y - initialMouseY;
@@ -96,29 +129,30 @@ public class LeverInteract : MonoBehaviour {
             angle = Mathf.Clamp(angle, minAngle, maxAngle);
             transform.rotation = Quaternion.Euler(angle, 0f, 0f);
 
-            // Declanșează doar dacă aproape de minAngle (prag strict <1f).
-            if (!hasTriggered && Mathf.Abs(angle - minAngle) < 1f) {
+            if (!hasTriggered && angle <= minAngle + 10f) {  // Adjusted condition to trigger near minAngle (pulled down)
                 hasTriggered = true;
                 TriggerLeverAction();
             }
         }
         else if (isReturning) {
-            // Revenire lin cu easing.
             float elapsed = Time.time - startTime;
             float t = Mathf.Clamp01(elapsed / returnDuration);
             t = EaseOutCubic(t);
             float newAngle = Mathf.LerpAngle(startAngle, initialAngle, t);
             transform.rotation = Quaternion.Euler(newAngle, 0f, 0f);
-
-            // Oprește revenire la final.
             if (t >= 1f) {
                 isReturning = false;
+                hasTriggered = false;  // Reset hasTriggered to allow future pulls
             }
         }
     }
 
+    private void LateUpdate() {
+        // Force position to original every frame to prevent unwanted changes
+        transform.position = originalPosition;
+    }
+
     private void TriggerLeverAction() {
-        // Detectează scena și declanșează acțiune corespunzătoare (păstrat original).
         string sceneName = SceneManager.GetActiveScene().name;
         if (sceneName == "MainMenu") {
             if (MenuManager.Instance != null) {
@@ -126,76 +160,114 @@ public class LeverInteract : MonoBehaviour {
             }
         }
         else {
-            if (GameManager.Instance != null) {
-                // Adăugat: Verifică sprite-ul asociat și mută obiectul corespunzător.
-                if (dropManager != null) {
-                    GameObject associatedSprite = dropManager.GetObjectAtPosition(associatedPosition);
-                    if (associatedSprite != null) {
-                        DragableObject dragable = associatedSprite.GetComponent<DragableObject>();
-                        if (dragable != null) {
-                            // Verifică dacă sprite-ul este unul required pentru scena curentă
-                            List<string> required = GameManager.Instance.requiredSpritesPerScene[GameManager.Instance.currentScene - 1];
-                            if (required.Contains(associatedSprite.name)) {
-                                // Sprite corect: Blochează sprite-ul, mută obiectul și apelează OnLeverPulled
+            if (GameManager.Instance != null && dropManager != null) {
+                GameObject associatedSprite = dropManager.GetObjectAtPosition(associatedPosition);
+                if (associatedSprite != null) {
+                    DragableObject dragable = associatedSprite.GetComponent<DragableObject>();
+                    if (dragable != null) {
+                        List<string> required = GameManager.Instance.requiredSpritesPerScene[GameManager.Instance.currentScene - 1];
+                        if (required.Contains(associatedSprite.name)) {
+                            // Toggle behavior
+                            if (!isActivated) {
                                 dragable.Lock();
-
                                 if (dragable.associatedObject != null) {
-                                    Debug.Log($"Maneta {name} a detectat sprite-ul corect: {associatedSprite.name} la poziția {associatedPosition}. Mută obiectul {dragable.associatedObject.name}.");
-                                    StartCoroutine(MoveObjectToRight(dragable.associatedObject));
+                                    int sceneIndex = GameManager.Instance.currentScene - 1;
+                                    Vector3 moveOffset = GameManager.Instance.moveOffsetsPerScene[sceneIndex].ContainsKey(associatedSprite.name)
+                                        ? GameManager.Instance.moveOffsetsPerScene[sceneIndex][associatedSprite.name]
+                                        : Vector3.zero;
+                                    int sortingOrder = GameManager.Instance.characterSortingOrdersPerScene[sceneIndex].ContainsKey(associatedSprite.name)
+                                        ? GameManager.Instance.characterSortingOrdersPerScene[sceneIndex][associatedSprite.name]
+                                        : 5;
+                                    bool flipX = GameManager.Instance.flipSpritesPerScene[sceneIndex].ContainsKey(associatedSprite.name)
+                                        ? GameManager.Instance.flipSpritesPerScene[sceneIndex][associatedSprite.name]
+                                        : false;
+
+                                    Debug.Log($"Maneta {name} a detectat sprite-ul corect: {associatedSprite.name} la poziția {associatedPosition}. Mută obiectul {dragable.associatedObject.name} cu offset {moveOffset}, sortingOrder {sortingOrder}, flipX {flipX}.");
+                                    StartCoroutine(MoveAssociatedObject(dragable.associatedObject, moveOffset));
+
+                                    SpriteRenderer sr = dragable.associatedObject.GetComponent<SpriteRenderer>();
+                                    if (sr != null) {
+                                        sr.sortingOrder = sortingOrder;
+                                        sr.flipX = flipX;
+                                    }
+                                    else {
+                                        Debug.LogWarning($"Associated object {dragable.associatedObject.name} lacks SpriteRenderer for {associatedSprite.name}.");
+                                    }
                                 }
-                                GameManager.Instance.OnLeverPulled(this); // Apelează OnLeverPulled doar dacă corect
+                                isActivated = true;
                             }
                             else {
-                                Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu este corect pentru scena curentă. Resetează maneta.");
-                                Reset(); // Resetează maneta dacă sprite-ul nu e corect
+                                dragable.Unlock();
+                                if (dragable.associatedObject != null) {
+                                    Vector3 moveOffset = GameManager.Instance.moveOffsetsPerScene[GameManager.Instance.currentScene - 1].ContainsKey(associatedSprite.name)
+                                        ? GameManager.Instance.moveOffsetsPerScene[GameManager.Instance.currentScene - 1][associatedSprite.name]
+                                        : Vector3.zero;
+                                    Debug.Log($"Maneta {name} reversează mutarea pentru {dragable.associatedObject.name}.");
+                                    StartCoroutine(MoveAssociatedObject(dragable.associatedObject, -moveOffset)); // Move back
+                                    SpriteRenderer sr = dragable.associatedObject.GetComponent<SpriteRenderer>();
+                                    if (sr != null) {
+                                        sr.sortingOrder = 5; // Default sorting order
+                                        sr.flipX = false; // Default flip state
+                                    }
+                                }
+                                isActivated = false;
                             }
+                            GameManager.Instance.OnLeverPulled(this);
+                            return;
                         }
                         else {
-                            Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu are componenta DragableObject.");
-                            Reset(); // Resetează dacă nu are componentă
+                            Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu este corect pentru scena curentă.");
+                            // Do not reset; allow the pull but no effect
                         }
                     }
                     else {
-                        Debug.LogWarning($"Niciun sprite asociat la poziția {associatedPosition} pentru maneta {name}.");
-                        Reset(); // Resetează dacă nu există sprite
+                        Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu are componenta DragableObject.");
+                        // Do not reset
                     }
                 }
+                else {
+                    Debug.LogWarning($"Niciun sprite asociat la poziția {associatedPosition} pentru maneta {name}.");
+                    // Allow pull even with no sprite, but no effect
+                }
+                GameManager.Instance.OnLeverPulled(this); // Still notify to increment count if needed
             }
         }
     }
 
-    private IEnumerator MoveObjectToRight(GameObject target) {
+    private IEnumerator MoveAssociatedObject(GameObject target, Vector3 offset) {
         if (target == null) yield break;
-
         Vector3 startPos = target.transform.position;
-        Vector3 endPos = startPos + new Vector3(moveDistance, 0f, 0f); // Mută spre dreapta pe X.
+        Vector3 endPos = startPos + offset;
         float elapsed = 0f;
 
         while (elapsed < moveDuration) {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / moveDuration);
-            t = moveCurve.Evaluate(t); // Aplică curba de easing.
+            t = moveCurve.Evaluate(t);
             target.transform.position = Vector3.Lerp(startPos, endPos, t);
             yield return null;
         }
-
-        target.transform.position = endPos; // Asigură poziția finală exactă.
+        target.transform.position = endPos;
     }
 
     private float EaseOutCubic(float t) {
-        // Funcție easing pentru revenire smooth.
         return 1f - Mathf.Pow(1f - t, 3f);
     }
 
     public void Reset() {
-        // Resetează flag-uri și rotație/poziție.
         hasTriggered = false;
         isDragging = false;
         isReturning = false;
+        canInteract = true;
         transform.rotation = Quaternion.Euler(initialAngle, 0f, 0f);
-        if (pivot != null) {
-            transform.position = pivot.position;
+        if (originalScale == Vector3.zero) {
+            originalScale = Vector3.one; // Protecție împotriva scalei zero
+            Debug.LogWarning($"Maneta {name} avea originalScale zero în Reset. Setată la Vector3.one.");
         }
+        transform.localScale = originalScale;
+        transform.position = originalPosition;
+        isActivated = false; // Reset activation state
+        Debug.Log($"Maneta {name} resetată. Scală curentă: {transform.localScale}, Poziție: {transform.position}, originalScale: {originalScale}");
     }
 
     public void ResetSprite() {
@@ -206,7 +278,9 @@ public class LeverInteract : MonoBehaviour {
                 if (dragable != null) {
                     dragable.Unlock();
                     dragable.ReturnToOriginal();
+                    dragable.ResetAssociatedObject();
                     dropManager.RemoveObjectFromPosition(associatedPosition);
+                    isActivated = false; // Reset on scene reset
                 }
             }
         }

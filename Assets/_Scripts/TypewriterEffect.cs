@@ -1,3 +1,7 @@
+// Modified TypewriterEffect.cs
+// Changes:
+// - Added public bool IsTyping { get { return !_readyForNewText; } } to check if typing is in progress.
+
 using System;
 using System.Collections;
 using UnityEngine;
@@ -22,6 +26,8 @@ public class TypewriterEffect : MonoBehaviour {
 
     public static event Action CompleteTextRevealed; // Eveniment când textul este complet revelat.
     public static event Action<char> CharacterRevealed; // Eveniment pentru fiecare caracter revelat.
+
+    public bool IsTyping { get { return !_readyForNewText; } }  // New: Public property to check if typing is ongoing
 
     private void Awake() {
         // Inițializează componenta TMP_Text și delay-urile.
