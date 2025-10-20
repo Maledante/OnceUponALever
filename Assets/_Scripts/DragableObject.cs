@@ -1,158 +1,168 @@
-// Modified DragableObject.cs
-// Changes:
-// - Reverted Z manipulation for associatedObject to preserve its original Z position.
-// - Only the DragableObject itself (the sprite with this script) is forced to Z=-1.
-// - Ensured originalAssociatedPos stores the associatedObject's original Z (not forced to -1).
-
-using System.Collections;
 using UnityEngine;
+using System.Collections;
+using UnityEngine.Rendering;
 
 public class DragableObject : MonoBehaviour {
-    private Vector3 offset;
-    private Vector3 originalPosition;
-    private bool isDragging = false;
-    private bool isSnapping = false; // Flag pentru a preveni interferența cu snap
-    public bool IsSnapping { get { return isSnapping; } } // Public getter for waiting in reset
-    private float snapThreshold = 0.5f;
-    private float snapSpeed = 10f;
-
+    private Vector3 initialPosition;
     private DropzoneManager dropManager;
-
-    [Header("Setări Obiect Asociat")]
-    public GameObject associatedObject;
-    [HideInInspector]
-    public bool isLocked = false;
-
-    [Header("Setări Mutare Personalizată")]
-    public Vector3 moveOffset = new Vector3(5f, 0f, 0f); // Offset-ul de mutare relativ
-
-    private Vector3 originalAssociatedPos; // Poziția inițială a obiectului asociat
-    private SpriteRenderer sr;
+    private bool isDragging = false;
+    private Vector3 offset;
+    public GameObject associatedObject; // Associated object to move when lever is pulled
+    private Vector3 moveOffset;
+    private bool wasMoved = false; // Tracks if associated object was moved
+    private bool isSnapping = false; // Tracks if the object is currently lerping
+    public bool IsSnapping { get { return isSnapping; } }
+    public DropzoneManager DropzoneManager { get { return dropManager; } }
 
     void Start() {
+
         dropManager = FindAnyObjectByType<DropzoneManager>();
         if (dropManager == null) {
-            Debug.LogError("DropZoneManager not found! Please add it to the scene.");
+            Debug.LogError($"No DropzoneManager found for {name}!");
             return;
         }
-        // Force Z=-1 only for the DragableObject
-        transform.position = new Vector3(transform.position.x, transform.position.y, -1f);
-        originalPosition = transform.position;
-        Debug.Log($"Dragable {name} originalPosition set to {originalPosition}");
-
-        if (associatedObject != null) {
-            // Store associatedObject's original position without modifying its Z
-            originalAssociatedPos = associatedObject.transform.position;
-            Debug.Log($"Associated {associatedObject.name} originalAssociatedPos set to {originalAssociatedPos}");
-        }
-
-        dropManager.AssignObjectToPosition((Vector2)originalPosition, gameObject);
-        sr = GetComponent<SpriteRenderer>();
+        initialPosition = transform.position;
+        // Delay position assignment until DropzoneManager is initialized
+        StartCoroutine(InitializePosition());
     }
 
-    void Update() {
-        if (isDragging && !isSnapping && Input.GetMouseButton(0)) {
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            mouseWorldPos.z = -1f; // Force Z=-1 for DragableObject
-            transform.position = mouseWorldPos + offset;
+    private IEnumerator InitializePosition() {
+        // Wait until DropzoneManager is initialized
+        while (dropManager != null && !dropManager.IsInitialized) {
+            Debug.Log($"Waiting for DropzoneManager to initialize for {name}");
+            yield return null;
+        }
+        if (dropManager != null && dropManager.IsExactDropPosition(transform.position)) {
+            dropManager.AssignObjectToPosition(transform.position, gameObject);
+            Debug.Log($"Assigned {name} to initial position {transform.position} in Start");
         }
     }
 
     void OnMouseDown() {
+        if (!enabled) {
+            Debug.Log($"Cannot drag {name}: Component is disabled.");
+            return;
+        }
         if (GameManager.Instance != null && GameManager.Instance.writer.IsTyping) {
-            Debug.Log($"Cannot drag {name} while text is typing.");
-            return;  // Prevent dragging while typing
+            Debug.Log($"Cannot drag {name}: Typewriter is typing.");
+            return;
         }
+        isDragging = true;
+        offset = transform.position - Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        offset.z = 0;
+        SpriteRenderer sr = gameObject.GetComponent<SpriteRenderer>();
+        sr.sortingOrder = 8; // Bring to front while dragging
+        dropManager.RemoveObjectFromPosition(transform.position);
+        Debug.Log($"Started dragging {name} from position {transform.position}");
 
-        if (!isDragging && !isLocked && dropManager != null && !isSnapping) {
-            Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            mouseWorldPos.z = -1f; // Force Z=-1 for DragableObject
-            offset = transform.position - mouseWorldPos;
+    }
 
-            transform.localScale *= 1.1f;
-            dropManager.RemoveObjectFromPosition((Vector2)transform.position);
-
-            isDragging = true;
-            sr.sortingOrder = 10;
-        }
+    void OnMouseDrag() {
+        if (!isDragging) return;
+        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition) + offset;
+        mousePos.z = -1f;
+        transform.position = mousePos;
     }
 
     void OnMouseUp() {
-        if (isDragging && dropManager != null) {
-            isDragging = false;
-            transform.localScale /= 1.1f;
-            sr.sortingOrder = 5;
-
-            Vector3 nearestPosition = dropManager.GetNearestPosition((Vector2)transform.position, snapThreshold);
-
-            if (nearestPosition != Vector3.zero) {
-                GameObject existingObj = dropManager.GetObjectAtPosition((Vector2)nearestPosition);
-                if (existingObj != null && existingObj != gameObject) {
-                    DragableObject existingDragable = existingObj.GetComponent<DragableObject>();
-                    if (existingDragable != null) {
-                        if (existingDragable.isLocked) {
-                            StartCoroutine(SmoothSnap(originalPosition));
-                            return;
-                        }
-                        else {
-                            StartCoroutine(existingDragable.SmoothSnap(existingDragable.originalPosition));
-                            dropManager.RemoveObjectFromPosition((Vector2)nearestPosition);
+        SpriteRenderer sr = gameObject.GetComponent<SpriteRenderer>();
+        sr.sortingOrder = 5;
+        if (!isDragging) return;
+        isDragging = false;
+        Vector3 nearestPos = dropManager.GetNearestFreePosition(transform.position, 0.5f);
+        if (nearestPos != Vector3.zero) {
+            isSnapping = true;
+            StartCoroutine(LerpToPosition(nearestPos, 0.5f, () => {
+                dropManager.AssignObjectToPosition(nearestPos, gameObject);
+                Debug.Log($"Dropped {name} at position {nearestPos}");
+            }));
+        }
+        else {
+            isSnapping = true;
+            StartCoroutine(LerpToPosition(initialPosition, 0.5f, () => {
+                Debug.Log($"No valid drop position found for {name}. Returned to initial position {initialPosition}");
+                // Only deactivate this inventory object if it's not present on the DropzoneManager's current page
+                if (dropManager != null) {
+                    int currentPage = dropManager.GetCurrentPage();
+                    bool existsOnCurrentPage = false;
+                    if (dropManager.pages != null && currentPage >= 0 && currentPage < dropManager.pages.Count) {
+                        var page = dropManager.pages[currentPage];
+                        if (page.draggableObjects != null) {
+                            foreach (var obj in page.draggableObjects) {
+                                if (obj == this.gameObject) {
+                                    existsOnCurrentPage = true;
+                                    break;
+                                }
+                            }
                         }
                     }
+
+                    if (!existsOnCurrentPage) {
+                        gameObject.SetActive(false);
+                        Debug.Log($"Deactivated {name} because it's not on current page {currentPage}");
+                    }
+                    else {
+                        Debug.Log($"Kept {name} active because it exists on current page {currentPage}");
+                    }
                 }
-                StartCoroutine(SmoothSnap(new Vector3(nearestPosition.x, nearestPosition.y, -1f)));
-            }
-            else {
-                StartCoroutine(SmoothSnap(originalPosition));
-            }
+                else {
+                    // Fallback: if there's no dropManager, keep previous behavior but log
+                    Debug.LogWarning($"DropzoneManager missing when deciding active state for {name}; keeping it active.");
+                }
+            }));
         }
     }
 
-    private IEnumerator SmoothSnap(Vector3 targetPosition) {
-        isSnapping = true;
-        targetPosition.z = -1f; // Force Z=-1 for DragableObject
-        Debug.Log($"Snapping {name} from {transform.position} to {targetPosition}");
-        while (Vector3.Distance(transform.position, targetPosition) > 0.001f) { // Reduced threshold for precision
-            transform.position = Vector3.Lerp(transform.position, targetPosition, snapSpeed * Time.deltaTime);
-            yield return null;
-        }
-        transform.position = targetPosition;
-        dropManager.AssignObjectToPosition((Vector2)targetPosition, gameObject);
-        isSnapping = false;
-        Debug.Log($"Snapped {name} to {targetPosition}");
-    }
-
-    public void ReturnToOriginal() {
-        Debug.Log($"Returning {name} to original {originalPosition} from current {transform.position}");
-        StartCoroutine(SmoothSnap(originalPosition));
+    public void SetMoveOffset(Vector3 offset) {
+        moveOffset = offset;
+        Debug.Log($"Set moveOffset for {name} to {offset}");
     }
 
     public void Lock() {
-        isLocked = true;
-        Collider2D collider = GetComponent<Collider2D>();
-        if (collider != null) {
-            collider.enabled = false;
-        }
+        enabled = false;
+        Debug.Log($"Locked {name}");
     }
 
     public void Unlock() {
-        isLocked = false;
-        Collider2D collider = GetComponent<Collider2D>();
-        if (collider != null) {
-            collider.enabled = true;
-        }
+        enabled = true;
+        Debug.Log($"Unlocked {name}");
+    }
+
+    public void ReturnToInitial() {
+        isSnapping = true;
+        StartCoroutine(LerpToPosition(initialPosition, 0.5f, () => {
+            Debug.Log($"Returned {name} to initial position {initialPosition}");
+        }));
     }
 
     public void ResetAssociatedObject() {
-        if (associatedObject != null) {
-            // Reset to originalAssociatedPos without modifying Z
-            Vector3 resetPos = originalAssociatedPos;
-            Debug.Log($"Resetting associated {associatedObject.name} to {resetPos} from {associatedObject.transform.position}");
-            associatedObject.transform.position = resetPos;
+        if (associatedObject != null && wasMoved) {
+            associatedObject.transform.position -= moveOffset;
+            wasMoved = false;
+            Debug.Log($"Reset associated object {associatedObject.name} by reversing moveOffset {moveOffset} to position {associatedObject.transform.position}");
+        }
+        else if (associatedObject != null) {
+            Debug.Log($"No reset needed for associated object {associatedObject.name}: wasMoved={wasMoved}");
         }
     }
 
-    public void SetMoveOffset(Vector3 newOffset) {
-        moveOffset = newOffset;
+    public void MarkAsMoved() {
+        wasMoved = true;
+        Debug.Log($"Marked {name}'s associated object as moved");
+    }
+
+    private IEnumerator LerpToPosition(Vector3 target, float duration, System.Action onComplete) {
+        float time = 0;
+        Vector3 startPosition = transform.position;
+
+        while (time < duration) {
+            transform.position = Vector3.Lerp(startPosition, target, time / duration);
+            time += Time.deltaTime;
+            yield return null;
+        }
+
+        transform.position = target;
+        isSnapping = false;
+        onComplete?.Invoke();
     }
 }

@@ -17,6 +17,16 @@ public class MenuManager : MonoBehaviour {
         }
     }
 
+    private void OnEnable() {
+        // Subscrie la evenimentul sceneLoaded pentru a gestiona fade in-ul
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void OnDisable() {
+        // Dezsubscrie de la eveniment pentru a evita memory leaks
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
     public void OnLeverPulled(string leverType) {
         // Încarcă scena corespunzătoare cu fade.
         StartCoroutine(LoadSceneWithFade(leverType));
@@ -34,6 +44,9 @@ public class MenuManager : MonoBehaviour {
             case "Tutorial":
                 sceneToLoad = "Tutorials";
                 break;
+            case "Back":
+                sceneToLoad = "MainMenu";
+                break;
         }
 
         if (!string.IsNullOrEmpty(sceneToLoad)) {
@@ -42,8 +55,19 @@ public class MenuManager : MonoBehaviour {
                 yield return StartCoroutine(FadeManager.Instance.FadeOut(() => SceneManager.LoadScene(sceneToLoad)));
             }
             else {
+                Debug.LogWarning("FadeManager.Instance is null, loading scene without fade.");
                 SceneManager.LoadScene(sceneToLoad);
             }
+        }
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+        // Fade in după ce scena s-a încărcat
+        if (FadeManager.Instance != null) {
+            StartCoroutine(FadeManager.Instance.FadeIn());
+        }
+        else {
+            Debug.LogWarning("FadeManager.Instance is null, cannot perform fade in.");
         }
     }
 }

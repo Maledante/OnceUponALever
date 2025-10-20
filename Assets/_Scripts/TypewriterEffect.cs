@@ -1,6 +1,10 @@
 // Modified TypewriterEffect.cs
 // Changes:
 // - Added public bool IsTyping { get { return !_readyForNewText; } } to check if typing is in progress.
+// - Added AudioClip[] typingSounds to store three possible typing sounds.
+// - Added AudioSource audioSource to play the typing sounds.
+// - In Typewriter coroutine, play a random sound from typingSounds each time a character is revealed (when maxVisibleCharacters is updated).
+// - Added validation in Awake to ensure audioSource and typingSounds are assigned and not empty.
 
 using System;
 using System.Collections;
@@ -9,7 +13,7 @@ using TMPro;
 using Object = UnityEngine.Object;
 
 // Acest script gestionează efectul de typewriter pentru textul TMP (TextMeshPro).
-// El afișează textul caracter cu caracter, cu pauze la punctuație.
+// El afișează textul caracter cu caracter, cu pauze la punctuație și redă un sunet aleatoriu la fiecare caracter.
 [RequireComponent(typeof(TMP_Text))]
 public class TypewriterEffect : MonoBehaviour {
     private TMP_Text _textBox; // Referință la componenta TMP_Text.
@@ -24,16 +28,34 @@ public class TypewriterEffect : MonoBehaviour {
     [SerializeField] private float charactersPerSecond = 20f; // Caractere pe secundă.
     [SerializeField] private float interpunctuationDelay = 0.5f; // Delay pentru punctuație.
 
+    [Header("Sound Settings")]
+    [SerializeField] private AudioSource audioSource; // Assign in Inspector
+    [SerializeField] private AudioClip[] typingSounds; // Array of three typing sound clips
+
     public static event Action CompleteTextRevealed; // Eveniment când textul este complet revelat.
     public static event Action<char> CharacterRevealed; // Eveniment pentru fiecare caracter revelat.
 
-    public bool IsTyping { get { return !_readyForNewText; } }  // New: Public property to check if typing is ongoing
+    public bool IsTyping { get { return !_readyForNewText; } } // Check if typing is ongoing
 
     private void Awake() {
         // Inițializează componenta TMP_Text și delay-urile.
         _textBox = GetComponent<TMP_Text>();
         _simpleDelay = new WaitForSeconds(1f / charactersPerSecond);
         _interpunctuationDelay = new WaitForSeconds(interpunctuationDelay);
+
+        // Validare AudioSource și typingSounds
+        if (audioSource == null) {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null) {
+                Debug.LogWarning($"No AudioSource assigned or found on {gameObject.name}. Typing sounds will not play.");
+            }
+        }
+        if (typingSounds == null || typingSounds.Length == 0) {
+            Debug.LogWarning($"No typing sounds assigned in {gameObject.name}. Typing sounds will not play.");
+        }
+        else if (typingSounds.Length != 3) {
+            Debug.LogWarning($"Expected exactly 3 typing sounds in {gameObject.name}, but found {typingSounds.Length}.");
+        }
     }
 
     private void OnEnable() {
@@ -74,6 +96,12 @@ public class TypewriterEffect : MonoBehaviour {
              _currentVisibleCharacterIndex++) {
             // Face vizibil caracterul curent.
             _textBox.maxVisibleCharacters = _currentVisibleCharacterIndex + 1;
+
+            // Redă un sunet aleatoriu dacă există AudioSource și sunete
+            if (audioSource != null && typingSounds != null && typingSounds.Length > 0) {
+                AudioClip randomSound = typingSounds[UnityEngine.Random.Range(0, typingSounds.Length)];
+                audioSource.PlayOneShot(randomSound);
+            }
 
             char c = textInfo.characterInfo[_currentVisibleCharacterIndex].character;
 

@@ -1,3 +1,7 @@
+// Modified RopeInteract.cs
+// Changes:
+// - Added check in OnMouseDown to prevent interaction if GameManager.Instance.writer.IsTyping is true.
+
 using UnityEngine;
 
 // Acest script gestionează interacțiunea cu sfoara (rope), permițând tragerea în jos și revenirea.
@@ -24,6 +28,10 @@ public class RopeInteract : MonoBehaviour {
         // Verifică dacă este activat și cameră există.
         if (!enabled || cam == null)
             return;
+        if (GameManager.Instance != null && GameManager.Instance.writer.IsTyping) {
+            Debug.Log($"Cannot interact with rope while text is typing.");
+            return;
+        }
 
         // Începe tragerea.
         isDragging = true;

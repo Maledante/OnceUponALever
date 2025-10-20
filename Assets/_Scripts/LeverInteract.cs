@@ -1,10 +1,3 @@
-// Modified LeverInteract.cs
-// Changes:
-// - In TriggerLeverAction, when a correct sprite is detected and isActivated is false, apply moveOffset, sortingOrder, and flipX from GameManager's configurations to the associatedObject.
-// - Use MoveAssociatedObject to lerp the associatedObject to its current position + moveOffset.
-// - When reversing (isActivated = true), reset to original position using MoveAssociatedObject with -moveOffset, and reset sortingOrder and flipX to defaults (sortingOrder=5, flipX=false).
-// - Ensured associatedObject's original Z position is preserved during movement.
-
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using System.Collections;
@@ -45,6 +38,8 @@ public class LeverInteract : MonoBehaviour {
     private DropzoneManager dropManager;
     private bool canInteract = true;
     private bool isActivated = false; // Track if the associated object is moved forward
+    public bool IsActivated { get { return isActivated; } } // Public getter
+    private Vector3 associatedObjectOriginalPosition; // Track original position of associated object
 
     private void Start() {
         cam = Camera.main;
@@ -59,8 +54,8 @@ public class LeverInteract : MonoBehaviour {
             originalPosition = pivot.position;
         }
 
-        if (SceneManager.GetActiveScene().name != "MainMenu") {
-            dropManager = FindAnyObjectByType<DropzoneManager>();
+        if (SceneManager.GetActiveScene().name != "MainMenu" && SceneManager.GetActiveScene().name != "Tutorials" && SceneManager.GetActiveScene().name != "Settings") {
+            dropManager = Object.FindFirstObjectByType<DropzoneManager>();
             if (dropManager == null) {
                 Debug.LogError($"DropZoneManager nu a fost găsit pentru maneta {name}!");
             }
@@ -76,6 +71,10 @@ public class LeverInteract : MonoBehaviour {
     private void OnMouseDown() {
         if (!enabled || cam == null || !canInteract) {
             Debug.Log($"Maneta {name} nu poate fi interacționată: enabled={enabled}, cam={cam != null}, canInteract={canInteract}");
+            return;
+        }
+        if (GameManager.Instance != null && GameManager.Instance.writer.IsTyping) {
+            Debug.Log($"Cannot interact with lever {name} while text is typing.");
             return;
         }
         isDragging = true;
@@ -129,7 +128,7 @@ public class LeverInteract : MonoBehaviour {
             angle = Mathf.Clamp(angle, minAngle, maxAngle);
             transform.rotation = Quaternion.Euler(angle, 0f, 0f);
 
-            if (!hasTriggered && angle <= minAngle + 10f) {  // Adjusted condition to trigger near minAngle (pulled down)
+            if (!hasTriggered && angle <= minAngle + 10f) {  // Trigger near minAngle (pulled down)
                 hasTriggered = true;
                 TriggerLeverAction();
             }
@@ -154,88 +153,80 @@ public class LeverInteract : MonoBehaviour {
 
     private void TriggerLeverAction() {
         string sceneName = SceneManager.GetActiveScene().name;
-        if (sceneName == "MainMenu") {
-            if (MenuManager.Instance != null) {
-                MenuManager.Instance.OnLeverPulled(leverType);
-            }
+        if (sceneName == "MainMenu" || sceneName == "Tutorials" || sceneName == "Settings") {
+            MenuManager.Instance?.OnLeverPulled(leverType);
         }
         else {
-            if (GameManager.Instance != null && dropManager != null) {
+            if (dropManager != null) {
                 GameObject associatedSprite = dropManager.GetObjectAtPosition(associatedPosition);
                 if (associatedSprite != null) {
                     DragableObject dragable = associatedSprite.GetComponent<DragableObject>();
                     if (dragable != null) {
-                        List<string> required = GameManager.Instance.requiredSpritesPerScene[GameManager.Instance.currentScene - 1];
-                        if (required.Contains(associatedSprite.name)) {
-                            // Toggle behavior
-                            if (!isActivated) {
-                                dragable.Lock();
-                                if (dragable.associatedObject != null) {
-                                    int sceneIndex = GameManager.Instance.currentScene - 1;
-                                    Vector3 moveOffset = GameManager.Instance.moveOffsetsPerScene[sceneIndex].ContainsKey(associatedSprite.name)
-                                        ? GameManager.Instance.moveOffsetsPerScene[sceneIndex][associatedSprite.name]
-                                        : Vector3.zero;
-                                    int sortingOrder = GameManager.Instance.characterSortingOrdersPerScene[sceneIndex].ContainsKey(associatedSprite.name)
-                                        ? GameManager.Instance.characterSortingOrdersPerScene[sceneIndex][associatedSprite.name]
-                                        : 5;
-                                    bool flipX = GameManager.Instance.flipSpritesPerScene[sceneIndex].ContainsKey(associatedSprite.name)
-                                        ? GameManager.Instance.flipSpritesPerScene[sceneIndex][associatedSprite.name]
-                                        : false;
+                        // Process any sprite under the lever
+                        if (!isActivated) {
+                            dragable.Lock();
+                            if (dragable.associatedObject != null) {
+                                int sceneIndex = GameManager.Instance.currentScene - 1;
+                                Vector3 moveOffset = GameManager.Instance.moveOffsetsPerScene[sceneIndex].ContainsKey(associatedSprite.name)
+                                    ? GameManager.Instance.moveOffsetsPerScene[sceneIndex][associatedSprite.name]
+                                    : Vector3.zero;
+                                int sortingOrder = GameManager.Instance.characterSortingOrdersPerScene[sceneIndex].ContainsKey(associatedSprite.name)
+                                    ? GameManager.Instance.characterSortingOrdersPerScene[sceneIndex][associatedSprite.name]
+                                    : 5;
+                                bool flipX = GameManager.Instance.flipSpritesPerScene[sceneIndex].ContainsKey(associatedSprite.name)
+                                    ? GameManager.Instance.flipSpritesPerScene[sceneIndex][associatedSprite.name]
+                                    : false;
 
-                                    Debug.Log($"Maneta {name} a detectat sprite-ul corect: {associatedSprite.name} la poziția {associatedPosition}. Mută obiectul {dragable.associatedObject.name} cu offset {moveOffset}, sortingOrder {sortingOrder}, flipX {flipX}.");
-                                    StartCoroutine(MoveAssociatedObject(dragable.associatedObject, moveOffset));
+                                associatedObjectOriginalPosition = dragable.associatedObject.transform.position; // Store original position
+                                Debug.Log($"Maneta {name} a detectat sprite-ul: {associatedSprite.name} la poziția {associatedPosition}. Mută obiectul {dragable.associatedObject.name} cu offset {moveOffset}, sortingOrder {sortingOrder}, flipX {flipX}.");
+                                dragable.SetMoveOffset(moveOffset); // Set the offset for reset purposes
+                                dragable.MarkAsMoved(); // Mark as moved
+                                StartCoroutine(MoveAssociatedObject(dragable.associatedObject, moveOffset));
 
-                                    SpriteRenderer sr = dragable.associatedObject.GetComponent<SpriteRenderer>();
-                                    if (sr != null) {
-                                        sr.sortingOrder = sortingOrder;
-                                        sr.flipX = flipX;
-                                    }
-                                    else {
-                                        Debug.LogWarning($"Associated object {dragable.associatedObject.name} lacks SpriteRenderer for {associatedSprite.name}.");
-                                    }
+                                SpriteRenderer sr = dragable.associatedObject.GetComponent<SpriteRenderer>();
+                                if (sr != null) {
+                                    sr.sortingOrder = sortingOrder;
+                                    sr.flipX = flipX;
                                 }
-                                isActivated = true;
-                            }
-                            else {
-                                dragable.Unlock();
-                                if (dragable.associatedObject != null) {
-                                    Vector3 moveOffset = GameManager.Instance.moveOffsetsPerScene[GameManager.Instance.currentScene - 1].ContainsKey(associatedSprite.name)
-                                        ? GameManager.Instance.moveOffsetsPerScene[GameManager.Instance.currentScene - 1][associatedSprite.name]
-                                        : Vector3.zero;
-                                    Debug.Log($"Maneta {name} reversează mutarea pentru {dragable.associatedObject.name}.");
-                                    StartCoroutine(MoveAssociatedObject(dragable.associatedObject, -moveOffset)); // Move back
-                                    SpriteRenderer sr = dragable.associatedObject.GetComponent<SpriteRenderer>();
-                                    if (sr != null) {
-                                        sr.sortingOrder = 5; // Default sorting order
-                                        sr.flipX = false; // Default flip state
-                                    }
+                                else {
+                                    Debug.LogWarning($"Associated object {dragable.associatedObject.name} lacks SpriteRenderer for {associatedSprite.name}.");
                                 }
-                                isActivated = false;
                             }
-                            GameManager.Instance.OnLeverPulled(this);
-                            return;
+                            isActivated = true;
                         }
                         else {
-                            Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu este corect pentru scena curentă.");
-                            // Do not reset; allow the pull but no effect
+                            dragable.Unlock();
+                            if (dragable.associatedObject != null) {
+                                Debug.Log($"Maneta {name} reversează mutarea pentru {dragable.associatedObject.name} to original position {associatedObjectOriginalPosition}.");
+                                StartCoroutine(MoveAssociatedObject(dragable.associatedObject, associatedObjectOriginalPosition - dragable.associatedObject.transform.position)); // Move back to original
+                                SpriteRenderer sr = dragable.associatedObject.GetComponent<SpriteRenderer>();
+                                if (sr != null) {
+                                    sr.sortingOrder = 5; // Default sorting order
+                                    sr.flipX = false; // Default flip state
+                                }
+                            }
+                            isActivated = false;
                         }
+                        GameManager.Instance.OnLeverPulled(this);
                     }
                     else {
                         Debug.LogWarning($"Sprite-ul {associatedSprite.name} nu are componenta DragableObject.");
-                        // Do not reset
+                        GameManager.Instance.OnLeverPulled(this); // Still notify to increment count
                     }
                 }
                 else {
                     Debug.LogWarning($"Niciun sprite asociat la poziția {associatedPosition} pentru maneta {name}.");
-                    // Allow pull even with no sprite, but no effect
+                    GameManager.Instance.OnLeverPulled(this); // Still notify to increment count
                 }
-                GameManager.Instance.OnLeverPulled(this); // Still notify to increment count if needed
             }
         }
     }
 
     private IEnumerator MoveAssociatedObject(GameObject target, Vector3 offset) {
-        if (target == null) yield break;
+        if (target == null) {
+            Debug.LogWarning($"Cannot move null associated object for lever {name}.");
+            yield break;
+        }
         Vector3 startPos = target.transform.position;
         Vector3 endPos = startPos + offset;
         float elapsed = 0f;
@@ -248,6 +239,7 @@ public class LeverInteract : MonoBehaviour {
             yield return null;
         }
         target.transform.position = endPos;
+        Debug.Log($"Moved associated object {target.name} to {endPos} for lever {name}.");
     }
 
     private float EaseOutCubic(float t) {
@@ -277,10 +269,11 @@ public class LeverInteract : MonoBehaviour {
                 DragableObject dragable = associatedSprite.GetComponent<DragableObject>();
                 if (dragable != null) {
                     dragable.Unlock();
-                    dragable.ReturnToOriginal();
+                    dragable.ReturnToInitial();
                     dragable.ResetAssociatedObject();
                     dropManager.RemoveObjectFromPosition(associatedPosition);
                     isActivated = false; // Reset on scene reset
+                    Debug.Log($"Reset sprite {associatedSprite.name} for lever {name}.");
                 }
             }
         }
